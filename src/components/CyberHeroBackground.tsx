@@ -64,7 +64,7 @@ export default function CyberHeroBackground() {
     let startTime = performance.now();
 
     const render = (now: number) => {
-      const elapsed = (now - startTime) / 1000;
+      const elapsed = Math.max(0, (now - startTime) / 1000);
       ctx.clearRect(0, 0, width, height);
 
       const colorAccent = isDark ? "63, 222, 201" : "15, 118, 107";
@@ -92,12 +92,15 @@ export default function CyberHeroBackground() {
       // 2. Center Ambient Concentric Radar Waves
       const centerX = width * 0.5;
       const centerY = height * 0.45;
-      const maxRadius = Math.min(width, height) * 0.55;
+      const maxRadius = Math.max(10, Math.min(width, height) * 0.55);
 
       for (let i = 0; i < 3; i++) {
-        const ringProgress = (elapsed * 0.12 + i * 0.33) % 1;
-        const currentR = ringProgress * maxRadius;
-        const ringAlpha = (1 - ringProgress) * (isDark ? 0.09 : 0.06);
+        const rawProgress = (elapsed * 0.12 + i * 0.33) % 1;
+        const ringProgress = rawProgress < 0 ? rawProgress + 1 : rawProgress;
+        const currentR = Math.max(0, ringProgress * maxRadius);
+        if (currentR <= 0) continue;
+
+        const ringAlpha = Math.max(0, (1 - ringProgress) * (isDark ? 0.09 : 0.06));
 
         ctx.strokeStyle = `rgba(${colorAccent}, ${ringAlpha})`;
         ctx.lineWidth = 1;
@@ -119,11 +122,11 @@ export default function CyberHeroBackground() {
         if (p.y > height) p.y = 0;
 
         const pulse = Math.sin(elapsed * 2 + p.phase) * 0.25 + 0.75;
-        const alpha = p.baseAlpha * pulse * (isDark ? 0.6 : 0.4);
+        const alpha = Math.max(0, p.baseAlpha * pulse * (isDark ? 0.6 : 0.4));
 
         ctx.fillStyle = `rgba(${colorAccent}, ${alpha})`;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, Math.max(0.1, p.size), 0, Math.PI * 2);
         ctx.fill();
       });
 
@@ -162,3 +165,4 @@ export default function CyberHeroBackground() {
     </div>
   );
 }
+

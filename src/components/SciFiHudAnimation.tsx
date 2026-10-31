@@ -140,7 +140,7 @@ export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationP
     canvas.addEventListener("mousemove", handleMouseMove);
 
     const render = (now: number) => {
-      const elapsed = (now - startTime) / 1000;
+      const elapsed = Math.max(0, (now - startTime) / 1000);
       ctx.clearRect(0, 0, width, height);
 
       // Sci-Fi HUD color palettes
@@ -296,7 +296,7 @@ export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationP
         // Glowing core packet
         ctx.fillStyle = themeColors.spark;
         ctx.beginPath();
-        ctx.arc(px, py, pkt.size * 0.75, 0, Math.PI * 2);
+        ctx.arc(px, py, Math.max(0.1, pkt.size * 0.75), 0, Math.PI * 2);
         ctx.fill();
       });
 
@@ -313,7 +313,7 @@ export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationP
         ctx.lineWidth = 1.2;
         ctx.globalAlpha = sw.opacity;
         ctx.beginPath();
-        ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+        ctx.arc(sw.x, sw.y, Math.max(0.1, sw.radius), 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1.0;
       }
@@ -334,7 +334,7 @@ export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationP
           ctx.lineWidth = 1.2;
           ctx.setLineDash([8, 8]);
           ctx.beginPath();
-          ctx.arc(0, 0, baseR + 8, 0, Math.PI * 2);
+          ctx.arc(0, 0, Math.max(0.1, baseR + 8), 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
@@ -345,7 +345,7 @@ export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationP
         ctx.lineWidth = isHovered ? 2.0 : 1.2;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.arc(cx, cy, baseR + pulse, 0, Math.PI * 2);
+        ctx.arc(cx, cy, Math.max(0.1, baseR + pulse), 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
 
