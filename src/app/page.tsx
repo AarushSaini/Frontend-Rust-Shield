@@ -4,11 +4,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import P2PMeshCanvas from "@/components/P2PMeshCanvas";
+import SciFiHudAnimation from "@/components/SciFiHudAnimation";
 import SoftwareCatalogExplorer from "@/components/SoftwareCatalogExplorer";
 import LiveTelemetryTerminal from "@/components/LiveTelemetryTerminal";
 import RoiCalculator from "@/components/RoiCalculator";
 
 export default function HomePage() {
+  const [heroVisualMode, setHeroVisualMode] = useState<"hud" | "mesh">("hud");
   // Interactive Simulator State
   const [selectedPatch, setSelectedPatch] = useState("CVE-2026-3829");
   const [simStep, setSimStep] = useState<"idle" | "running" | "completed">("idle");
@@ -34,7 +36,14 @@ export default function HomePage() {
     <div className="space-y-24 md:space-y-32 pb-24 overflow-hidden">
       {/* 1. HERO SECTION */}
       <section className="relative pt-12 md:pt-20 px-6 lg:px-12 max-w-7xl mx-auto">
-        <div className="text-center max-w-4xl mx-auto">
+        {/* Ambient Futuristic Sci-Fi HUD Background Animation (Light & Dark theme adaptable) */}
+        <div className="pointer-events-none absolute inset-0 -top-8 overflow-hidden flex items-center justify-center opacity-30 dark:opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_78%)]">
+          <div className="w-full max-w-5xl h-[620px]">
+            <SciFiHudAnimation isBackground={true} />
+          </div>
+        </div>
+
+        <div className="relative z-10 text-center max-w-4xl mx-auto">
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-1.5 text-xs text-[var(--text)] mb-8 shadow-sm">
             <span className="flex h-2 w-2 rounded-full bg-[var(--accent)] animate-ping" />
@@ -99,8 +108,8 @@ export default function HomePage() {
         </div>
 
         {/* Hero Interactive Workspace Preview Card */}
-        <div className="mt-16 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6 shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-4 mb-6">
+        <div className="relative z-10 mt-16 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6 shadow-2xl overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--line)] pb-4 mb-6 gap-3">
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5">
                 <div className="h-3 w-3 rounded-full bg-red-400/80" />
@@ -109,15 +118,42 @@ export default function HomePage() {
               </div>
               <span className="font-mono text-xs text-[var(--text-3)]">fleet-telemetry.rustshield.internal · 48,290 Nodes Online</span>
             </div>
-            <Link
-              href="/dashboard"
-              className="text-xs font-mono text-[var(--accent)] hover:underline flex items-center gap-1"
-            >
-              Open Interactive View →
-            </Link>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-[var(--line)] p-0.5 bg-[var(--sunk)] text-xs font-mono">
+                <button
+                  onClick={() => setHeroVisualMode("hud")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    heroVisualMode === "hud"
+                      ? "bg-[var(--accent)] text-white shadow-xs font-semibold"
+                      : "text-[var(--text-2)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  Sci-Fi HUD
+                </button>
+                <button
+                  onClick={() => setHeroVisualMode("mesh")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    heroVisualMode === "mesh"
+                      ? "bg-[var(--accent)] text-white shadow-xs font-semibold"
+                      : "text-[var(--text-2)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  P2P Mesh Swarm
+                </button>
+              </div>
+
+              <Link
+                href="/dashboard"
+                className="text-xs font-mono text-[var(--accent)] hover:underline flex items-center gap-1 hidden md:flex"
+              >
+                Full Console →
+              </Link>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--sunk)] p-5">
               <p className="text-xs font-mono text-[var(--text-3)] uppercase">Fleet Compliance</p>
               <p className="mt-2 text-3xl font-serif font-medium text-[var(--text)]">98.4%</p>
@@ -151,9 +187,17 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Interactive Live Mesh Swarm Simulation */}
-          <div className="mt-8">
-            <P2PMeshCanvas />
+          {/* Interactive Visualizer Display: Sci-Fi HUD vs P2P Mesh Swarm */}
+          <div className="rounded-2xl border border-[var(--line)] overflow-hidden bg-[var(--bg)]">
+            {heroVisualMode === "hud" ? (
+              <div className="w-full h-[480px] sm:h-[540px] p-2 sm:p-4">
+                <SciFiHudAnimation className="h-full" />
+              </div>
+            ) : (
+              <div className="p-4 sm:p-6">
+                <P2PMeshCanvas />
+              </div>
+            )}
           </div>
         </div>
       </section>
