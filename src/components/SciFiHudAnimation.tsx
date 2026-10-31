@@ -4,18 +4,16 @@ import React, { useEffect, useRef, useState } from "react";
 
 interface SciFiHudAnimationProps {
   className?: string;
-  isBackground?: boolean;
 }
 
-interface HubNode {
+interface HudNode {
   id: string;
-  label: string;
-  sublabel?: string;
+  name: string;
+  role: string;
   xPct: number;
   yPct: number;
   radius: number;
-  pulsePhase: number;
-  accent: boolean;
+  isPrimary?: boolean;
 }
 
 interface Packet {
@@ -24,6 +22,7 @@ interface Packet {
   progress: number;
   speed: number;
   size: number;
+  color: string;
 }
 
 interface Shockwave {
@@ -34,17 +33,14 @@ interface Shockwave {
   opacity: number;
 }
 
-export default function SciFiHudAnimation({
-  className = "",
-  isBackground = false,
-}: SciFiHudAnimationProps) {
+export default function SciFiHudAnimation({ className = "" }: SciFiHudAnimationProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [isDark, setIsDark] = useState(true);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-  // Monitor document theme for instant color transitions
+  // Synchronize with application dark/light theme
   useEffect(() => {
-    const checkTheme = () => {
+    const updateTheme = () => {
       const darkActive =
         document.documentElement.classList.contains("dark") ||
         document.documentElement.getAttribute("data-theme") === "dark" ||
@@ -53,14 +49,12 @@ export default function SciFiHudAnimation({
       setIsDark(darkActive);
     };
 
-    checkTheme();
-
-    const observer = new MutationObserver(() => checkTheme());
+    updateTheme();
+    const observer = new MutationObserver(() => updateTheme());
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class", "data-theme"],
     });
-
     return () => observer.disconnect();
   }, []);
 
@@ -71,8 +65,8 @@ export default function SciFiHudAnimation({
     if (!ctx) return;
 
     let animId: number;
-    let width = (canvas.width = canvas.offsetWidth || 720);
-    let height = (canvas.height = canvas.offsetHeight || 460);
+    let width = (canvas.width = canvas.offsetWidth);
+    let height = (canvas.height = canvas.offsetHeight);
 
     const handleResize = () => {
       if (!canvas) return;
@@ -88,110 +82,163 @@ export default function SciFiHudAnimation({
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    // Node topology layout matching reference HUD:
-    // CONTACT (top left), DEAL (bottom left), ACCOUNT (center), TASK (top right), RENEWAL (right)
-    const nodes: HubNode[] = [
-      { id: "contact", label: "CONTACT", xPct: 0.16, yPct: 0.28, radius: 34, pulsePhase: 0, accent: false },
-      { id: "deal", label: "DEAL", xPct: 0.28, yPct: 0.74, radius: 40, pulsePhase: 2.1, accent: false },
-      { id: "account", label: "ACCOUNT", xPct: 0.42, yPct: 0.48, radius: 52, pulsePhase: 1.2, accent: true },
-      { id: "task", label: "TASK", xPct: 0.64, yPct: 0.24, radius: 32, pulsePhase: 4.3, accent: false },
-      { id: "renewal", label: "RENEWAL", sublabel: "PREVIEW", xPct: 0.78, yPct: 0.50, radius: 46, pulsePhase: 3.5, accent: true },
+    // Nodes according to user specification:
+    // 1. Account -> Server (central hub)
+    // 2. Deal -> Agent (bottom left)
+    // 3. Task -> Microsoft (top right)
+    // 4. Contact -> Dashboard (top left)
+    // 5. Renewal -> CVE (right primary destination)
+    const nodes: HudNode[] = [
+      { id: "dashboard", name: "DASHBOARD", role: "MONITOR", xPct: 0.17, yPct: 0.28, radius: 36 },
+      { id: "agent", name: "AGENT", role: "ENDPOINT", xPct: 0.28, yPct: 0.73, radius: 42 },
+      { id: "server", name: "SERVER", role: "CORE HUB", xPct: 0.44, yPct: 0.48, radius: 54, isPrimary: true },
+      { id: "microsoft", name: "MICROSOFT", role: "INTEGRATION", xPct: 0.65, yPct: 0.23, radius: 34 },
+      { id: "cve", name: "CVE", role: "AUDIT SWARM", xPct: 0.79, yPct: 0.50, radius: 48, isPrimary: true },
     ];
 
+    // Conduits linking the nodes
     const links: [number, number][] = [
-      [2, 0], // Account <-> Contact
-      [2, 1], // Account <-> Deal
-      [2, 3], // Account <-> Task
-      [2, 4], // Account <-> Renewal (main high-throughput pipeline)
-      [0, 1], // Contact <-> Deal
-      [1, 3], // Deal <-> Task
+      [2, 0], // Server <-> Dashboard
+      [2, 1], // Server <-> Agent
+      [2, 3], // Server <-> Microsoft
+      [2, 4], // Server <-> CVE (high bandwidth patch pipeline)
+      [0, 1], // Dashboard <-> Agent
+      [1, 3], // Agent <-> Microsoft
     ];
 
     // Data packets travelling between nodes
     const packets: Packet[] = [
-      { fromIndex: 2, toIndex: 4, progress: 0.1, speed: 0.007, size: 4 },
-      { fromIndex: 2, toIndex: 4, progress: 0.6, speed: 0.007, size: 3.5 },
-      { fromIndex: 0, toIndex: 2, progress: 0.3, speed: 0.009, size: 3 },
-      { fromIndex: 1, toIndex: 2, progress: 0.7, speed: 0.008, size: 3 },
-      { fromIndex: 3, toIndex: 2, progress: 0.4, speed: 0.010, size: 3 },
-      { fromIndex: 2, toIndex: 1, progress: 0.2, speed: 0.006, size: 3 },
+      { fromIndex: 2, toIndex: 4, progress: 0.05, speed: 0.007, size: 4.5, color: "#3fdec9" },
+      { fromIndex: 2, toIndex: 4, progress: 0.55, speed: 0.007, size: 4.0, color: "#3fdec9" },
+      { fromIndex: 1, toIndex: 2, progress: 0.30, speed: 0.008, size: 3.5, color: "#1daf9c" },
+      { fromIndex: 0, toIndex: 2, progress: 0.70, speed: 0.009, size: 3.5, color: "#1daf9c" },
+      { fromIndex: 3, toIndex: 2, progress: 0.45, speed: 0.008, size: 3.5, color: "#3fdec9" },
+      { fromIndex: 2, toIndex: 1, progress: 0.15, speed: 0.006, size: 3.5, color: "#1daf9c" },
     ];
 
     const shockwaves: Shockwave[] = [];
-
     let startTime = performance.now();
+
+    // Mouse hover detection
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      let hovered: string | null = null;
+      nodes.forEach((n) => {
+        const nx = n.xPct * width;
+        const ny = n.yPct * height;
+        const dist = Math.hypot(mouseX - nx, mouseY - ny);
+        if (dist <= n.radius + 15) {
+          hovered = n.id;
+        }
+      });
+      setHoveredNode(hovered);
+    };
+
+    canvas.addEventListener("mousemove", handleMouseMove);
 
     const render = (now: number) => {
       const elapsed = (now - startTime) / 1000;
-
       ctx.clearRect(0, 0, width, height);
 
-      // Color palette adjusted for dark vs light theme
-      const colors = isDark
+      // Sci-Fi HUD color palettes
+      const themeColors = isDark
         ? {
-            bg: isBackground ? "transparent" : "#0d1112",
+            bg: "#090d0e",
+            panelBorder: "#1a2c28",
             gridMinor: "rgba(63, 222, 201, 0.045)",
             gridMajor: "rgba(63, 222, 201, 0.10)",
             primary: "#3fdec9",
             secondary: "#1daf9c",
+            accent: "#84ebdd",
             darkRamp: "#16645a",
-            glow: "rgba(63, 222, 201, 0.45)",
-            textPrimary: "#3fdec9",
-            textMuted: "#84ebdd",
-            boxStroke: "#1daf9c",
+            textMain: "#3fdec9",
+            textMuted: "#9adfd5",
+            chipBg: "#16645a",
+            chipText: "#ffffff",
             spark: "#ffffff",
           }
         : {
-            bg: isBackground ? "transparent" : "#ffffff",
-            gridMinor: "rgba(15, 118, 107, 0.05)",
-            gridMajor: "rgba(15, 118, 107, 0.11)",
+            bg: "#ffffff",
+            panelBorder: "#d4ece6",
+            gridMinor: "rgba(15, 118, 107, 0.04)",
+            gridMajor: "rgba(15, 118, 107, 0.09)",
             primary: "#0f766b",
             secondary: "#1daf9c",
-            darkRamp: "#3fdec9",
-            glow: "rgba(15, 118, 107, 0.25)",
-            textPrimary: "#0f766b",
+            accent: "#16645a",
+            darkRamp: "#a7e9df",
+            textMain: "#0f766b",
             textMuted: "#16645a",
-            boxStroke: "#0f766b",
+            chipBg: "#0f766b",
+            chipText: "#ffffff",
             spark: "#0f766b",
           };
 
-      // Outer HUD frame background if not in ambient hero background mode
-      if (!isBackground) {
-        ctx.fillStyle = colors.bg;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, width, height, 16);
-        ctx.fill();
-      }
+      // ─── 1. Monitor Background & Bezel ──────────────────────────────────────
+      ctx.fillStyle = themeColors.bg;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, 16);
+      ctx.fill();
 
-      // ─── 1. CRT Vertical Phosphor Scanlines & Major Grid ───────────────────────
-      const colSpacing = 7;
-      ctx.lineWidth = 0.6;
-      ctx.strokeStyle = colors.gridMinor;
-      for (let x = 0; x < width; x += colSpacing) {
+      // Outer HUD Terminal Frame
+      ctx.strokeStyle = themeColors.panelBorder;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(10, 10, width - 20, height - 20);
+
+      // Four corner tactical brackets
+      const cornerSize = 16;
+      ctx.strokeStyle = themeColors.primary;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Top-left
+      ctx.moveTo(10, 10 + cornerSize);
+      ctx.lineTo(10, 10);
+      ctx.lineTo(10 + cornerSize, 10);
+      // Top-right
+      ctx.moveTo(width - 10 - cornerSize, 10);
+      ctx.lineTo(width - 10, 10);
+      ctx.lineTo(width - 10, 10 + cornerSize);
+      // Bottom-left
+      ctx.moveTo(10, height - 10 - cornerSize);
+      ctx.lineTo(10, height - 10);
+      ctx.lineTo(10 + cornerSize, height - 10);
+      // Bottom-right
+      ctx.moveTo(width - 10 - cornerSize, height - 10);
+      ctx.lineTo(width - 10, height - 10);
+      ctx.lineTo(width - 10, height - 10 - cornerSize);
+      ctx.stroke();
+
+      // ─── 2. Phosphor Scanline Grid ──────────────────────────────────────────
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = themeColors.gridMinor;
+      const colStep = 7.5;
+      for (let x = 12; x < width - 12; x += colStep) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+        ctx.moveTo(x, 12);
+        ctx.lineTo(x, height - 12);
         ctx.stroke();
       }
 
-      // Major coordinate cross grid
-      const majorCol = 96;
+      // Major coordinate lines
       ctx.lineWidth = 0.8;
-      ctx.strokeStyle = colors.gridMajor;
-      for (let x = 0; x < width; x += majorCol) {
+      ctx.strokeStyle = themeColors.gridMajor;
+      const majorStep = 96;
+      for (let x = 12; x < width - 12; x += majorStep) {
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+        ctx.moveTo(x, 12);
+        ctx.lineTo(x, height - 12);
         ctx.stroke();
       }
-      for (let y = 0; y < height; y += majorCol) {
+      for (let y = 12; y < height - 12; y += majorStep) {
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
+        ctx.moveTo(12, y);
+        ctx.lineTo(width - 12, y);
         ctx.stroke();
       }
 
-      // ─── 2. Conduits / Link Lines ─────────────────────────────────────────────
+      // ─── 3. Conduits / Laser Links ──────────────────────────────────────────
       links.forEach(([fromIdx, toIdx]) => {
         const from = nodes[fromIdx];
         const to = nodes[toIdx];
@@ -200,13 +247,14 @@ export default function SciFiHudAnimation({
         const x2 = to.xPct * width;
         const y2 = to.yPct * height;
 
-        const isMainBridge = (fromIdx === 2 && toIdx === 4) || (fromIdx === 4 && toIdx === 2);
+        const isMainChannel = (fromIdx === 2 && toIdx === 4) || (fromIdx === 4 && toIdx === 2);
+        const isHoveredChannel = hoveredNode === from.id || hoveredNode === to.id;
 
-        // Underline glow
-        ctx.lineWidth = isMainBridge ? 2.4 : 1.2;
-        ctx.strokeStyle = isMainBridge ? colors.secondary : colors.darkRamp;
-        ctx.setLineDash(isMainBridge ? [5, 3] : [3, 4]);
-        ctx.lineDashOffset = -elapsed * 18;
+        // Base laser conduit
+        ctx.lineWidth = isMainChannel ? 2.2 : isHoveredChannel ? 1.8 : 1.0;
+        ctx.strokeStyle = isMainChannel || isHoveredChannel ? themeColors.primary : themeColors.secondary;
+        ctx.setLineDash(isMainChannel ? [6, 3] : [4, 4]);
+        ctx.lineDashOffset = -elapsed * 22;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -214,48 +262,54 @@ export default function SciFiHudAnimation({
         ctx.setLineDash([]);
       });
 
-      // ─── 3. Packets Simulation ────────────────────────────────────────────────
+      // ─── 4. Data Packets Transmission ───────────────────────────────────────
       packets.forEach((pkt) => {
         pkt.progress += pkt.speed;
         if (pkt.progress >= 1) {
           pkt.progress = 0;
-          // Spawn shockwave at destination
+          // Spawn expanding sonar shockwave at target node
           const dest = nodes[pkt.toIndex];
           shockwaves.push({
             x: dest.xPct * width,
             y: dest.yPct * height,
-            radius: dest.radius * 0.8,
-            maxRadius: dest.radius * 2.2,
-            opacity: 0.7,
+            radius: dest.radius * 0.7,
+            maxRadius: dest.radius * 2.4,
+            opacity: 0.8,
           });
         }
 
         const from = nodes[pkt.fromIndex];
         const to = nodes[pkt.toIndex];
-        const x = from.xPct * width + (to.xPct * width - from.xPct * width) * pkt.progress;
-        const y = from.yPct * height + (to.yPct * height - from.yPct * height) * pkt.progress;
+        const px = from.xPct * width + (to.xPct * width - from.xPct * width) * pkt.progress;
+        const py = from.yPct * height + (to.yPct * height - from.yPct * height) * pkt.progress;
 
-        // Draw packet raster block
-        ctx.fillStyle = colors.spark;
-        ctx.fillRect(x - 2, y - 4, 4, 8);
-
-        // Glowing packet aura
-        ctx.fillStyle = colors.primary;
+        // Glow trail behind packet
+        const trailLen = 14;
+        const angle = Math.atan2(to.yPct * height - from.yPct * height, to.xPct * width - from.xPct * width);
+        ctx.strokeStyle = themeColors.primary;
+        ctx.lineWidth = pkt.size;
         ctx.beginPath();
-        ctx.arc(x, y, pkt.size, 0, Math.PI * 2);
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - Math.cos(angle) * trailLen, py - Math.sin(angle) * trailLen);
+        ctx.stroke();
+
+        // Glowing core packet
+        ctx.fillStyle = themeColors.spark;
+        ctx.beginPath();
+        ctx.arc(px, py, pkt.size * 0.75, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      // ─── 4. Node Shockwaves ───────────────────────────────────────────────────
+      // ─── 5. Expanding Shockwaves ────────────────────────────────────────────
       for (let i = shockwaves.length - 1; i >= 0; i--) {
         const sw = shockwaves[i];
-        sw.radius += 0.8;
-        sw.opacity -= 0.015;
+        sw.radius += 1.0;
+        sw.opacity -= 0.018;
         if (sw.opacity <= 0) {
           shockwaves.splice(i, 1);
           continue;
         }
-        ctx.strokeStyle = colors.primary;
+        ctx.strokeStyle = themeColors.primary;
         ctx.lineWidth = 1.2;
         ctx.globalAlpha = sw.opacity;
         ctx.beginPath();
@@ -264,144 +318,159 @@ export default function SciFiHudAnimation({
         ctx.globalAlpha = 1.0;
       }
 
-      // ─── 5. Node Voxel Clusters (Phosphor Dot Matrix Hubs) ────────────────────
+      // ─── 6. Nodes (Server, Agent, Microsoft, Dashboard, CVE) ────────────────
       nodes.forEach((node, idx) => {
         const cx = node.xPct * width;
         const cy = node.yPct * height;
         const baseR = node.radius;
+        const isHovered = hoveredNode === node.id;
 
-        // Outer pulsing orbital ring
-        const pulse = Math.sin(elapsed * 2.2 + node.pulsePhase) * 3;
-        ctx.strokeStyle = node.accent ? colors.primary : colors.secondary;
-        ctx.lineWidth = 1.0;
+        // Concentric rotating radar rings around primary nodes
+        if (node.isPrimary) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(elapsed * 0.5 * (idx % 2 === 0 ? 1 : -1));
+          ctx.strokeStyle = themeColors.secondary;
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([8, 8]);
+          ctx.beginPath();
+          ctx.arc(0, 0, baseR + 8, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Breathing orbital ring
+        const pulse = Math.sin(elapsed * 2.4 + idx) * 2.5;
+        ctx.strokeStyle = isHovered ? themeColors.primary : themeColors.secondary;
+        ctx.lineWidth = isHovered ? 2.0 : 1.2;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.arc(cx, cy, baseR + pulse, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Voxel matrix grid generation inside node
-        const step = 4.2;
-        const maxDist = baseR * 0.92;
-        for (let ox = -maxDist; ox <= maxDist; ox += step) {
-          for (let oy = -maxDist; oy <= maxDist; oy += step) {
-            const dist = Math.sqrt(ox * ox + oy * oy);
+        // Voxel/raster digital matrix core
+        const dotStep = 4.0;
+        const maxDist = baseR * 0.88;
+        for (let ox = -maxDist; ox <= maxDist; ox += dotStep) {
+          for (let oy = -maxDist; oy <= maxDist; oy += dotStep) {
+            const dist = Math.hypot(ox, oy);
             if (dist < maxDist) {
-              const noise = Math.sin(ox * 0.15 + oy * 0.15 + elapsed * 3 + idx);
-              const density = (1 - dist / maxDist) * (0.8 + noise * 0.2);
-              if (density > 0.28) {
-                const cellHeight = 2.2 + density * 4.0;
+              const oscillation = Math.sin(ox * 0.18 + oy * 0.18 + elapsed * 3.5 + idx);
+              const density = (1 - dist / maxDist) * (0.8 + oscillation * 0.2);
+              if (density > 0.25) {
+                const barHeight = 2.4 + density * 4.2;
                 ctx.fillStyle =
-                  density > 0.75
-                    ? colors.spark
-                    : density > 0.5
-                    ? colors.primary
-                    : colors.darkRamp;
-                ctx.fillRect(cx + ox - 1, cy + oy - cellHeight / 2, 2, cellHeight);
+                  density > 0.72
+                    ? themeColors.spark
+                    : density > 0.45
+                    ? themeColors.primary
+                    : themeColors.darkRamp;
+                ctx.fillRect(cx + ox - 1, cy + oy - barHeight / 2, 2, barHeight);
               }
             }
           }
         }
 
-        // Bounding Reticles / Target Brackets around hubs
-        const boxPad = baseR * 1.15;
-        const bLeft = cx - boxPad;
-        const bRight = cx + boxPad;
-        const bTop = cy - boxPad;
-        const bBottom = cy + boxPad;
-        const cornerLen = 10;
+        // Bounding Tactical Frames & Reticles
+        const framePad = baseR * 1.15;
+        const fLeft = cx - framePad;
+        const fRight = cx + framePad;
+        const fTop = cy - framePad;
+        const fBottom = cy + framePad;
+        const bracketLen = 12;
 
-        ctx.strokeStyle = colors.boxStroke;
-        ctx.lineWidth = 1.2;
+        if (node.isPrimary) {
+          // Bounding box with corner dot pins
+          ctx.strokeStyle = isHovered ? themeColors.primary : themeColors.secondary;
+          ctx.lineWidth = 1.4;
+          ctx.strokeRect(fLeft, fTop, framePad * 2, framePad * 2);
 
-        if (node.accent) {
-          // Full enclosure box with corner pins (like ACCOUNT & RENEWAL in reference)
-          ctx.strokeRect(bLeft, bTop, boxPad * 2, boxPad * 2);
-          // Corner dots
-          ctx.fillStyle = colors.primary;
-          [[bLeft, bTop], [bRight, bTop], [bLeft, bBottom], [bRight, bBottom]].forEach(([px, py]) => {
+          // Corner pins
+          ctx.fillStyle = themeColors.primary;
+          [[fLeft, fTop], [fRight, fTop], [fLeft, fBottom], [fRight, fBottom]].forEach(([px, py]) => {
             ctx.beginPath();
-            ctx.arc(px, py, 2.4, 0, Math.PI * 2);
+            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
             ctx.fill();
           });
 
-          // Label chip banner
-          const labelW = 62;
-          const labelH = 14;
-          ctx.fillStyle = colors.boxStroke;
-          ctx.fillRect(bLeft, bTop - labelH, labelW, labelH);
-          ctx.fillStyle = isDark ? "#0b0e10" : "#ffffff";
-          ctx.font = "bold 9px monospace";
-          ctx.fillText(node.label, bLeft + 5, bTop - 3.5);
+          // Floating Label Banner Chip
+          const chipW = Math.max(76, node.name.length * 9 + 14);
+          const chipH = 15;
+          ctx.fillStyle = themeColors.chipBg;
+          ctx.fillRect(fLeft, fTop - chipH, chipW, chipH);
+          ctx.fillStyle = themeColors.chipText;
+          ctx.font = "bold 9.5px monospace";
+          ctx.fillText(node.name, fLeft + 6, fTop - 3.5);
 
-          if (node.sublabel) {
-            ctx.fillStyle = colors.textMuted;
-            ctx.font = "bold 8.5px monospace";
-            ctx.fillText(node.sublabel, bLeft + (boxPad * 2 - 44) / 2, bBottom + 13);
-          }
+          // Sublabel badge
+          ctx.fillStyle = themeColors.textMuted;
+          ctx.font = "bold 8.5px monospace";
+          const subText = node.role;
+          ctx.fillText(subText, cx - (subText.length * 5) / 2, fBottom + 13);
         } else {
           // Corner brackets ┌ ┐ └ ┘
+          ctx.strokeStyle = isHovered ? themeColors.primary : themeColors.secondary;
+          ctx.lineWidth = 1.4;
           ctx.beginPath();
           // Top-left
-          ctx.moveTo(bLeft, bTop + cornerLen);
-          ctx.lineTo(bLeft, bTop);
-          ctx.lineTo(bLeft + cornerLen, bTop);
+          ctx.moveTo(fLeft, fTop + bracketLen);
+          ctx.lineTo(fLeft, fTop);
+          ctx.lineTo(fLeft + bracketLen, fTop);
           // Top-right
-          ctx.moveTo(bRight - cornerLen, bTop);
-          ctx.lineTo(bRight, bTop);
-          ctx.lineTo(bRight, bTop + cornerLen);
+          ctx.moveTo(fRight - bracketLen, fTop);
+          ctx.lineTo(fRight, fTop);
+          ctx.lineTo(fRight, fTop + bracketLen);
           // Bottom-left
-          ctx.moveTo(bLeft, bBottom - cornerLen);
-          ctx.lineTo(bLeft, bBottom);
-          ctx.lineTo(bLeft + cornerLen, bBottom);
+          ctx.moveTo(fLeft, fBottom - bracketLen);
+          ctx.lineTo(fLeft, fBottom);
+          ctx.lineTo(fLeft + bracketLen, fBottom);
           // Bottom-right
-          ctx.moveTo(bRight - cornerLen, bBottom);
-          ctx.lineTo(bRight, bBottom);
-          ctx.lineTo(bRight, bBottom - cornerLen);
+          ctx.moveTo(fRight - bracketLen, fBottom);
+          ctx.lineTo(fRight, fBottom);
+          ctx.lineTo(fRight, fBottom - bracketLen);
           ctx.stroke();
 
-          // Monospace node label above corner
-          ctx.fillStyle = colors.textPrimary;
-          ctx.font = "bold 9px monospace";
-          ctx.fillText(node.label, bLeft, bTop - 4);
+          // Node Label
+          ctx.fillStyle = themeColors.textMain;
+          ctx.font = "bold 9.5px monospace";
+          ctx.fillText(node.name, fLeft, fTop - 4);
         }
       });
 
-      // ─── 6. HUD Header Status Chip: "OBJECTS 5" / "LINKED" ─────────────────────
-      const chipX = width * 0.74;
-      const chipY = height * 0.09;
-      ctx.fillStyle = colors.boxStroke;
-      ctx.fillRect(chipX, chipY, 68, 14);
-      ctx.fillStyle = isDark ? "#0b0e10" : "#ffffff";
+      // ─── 7. Top-Right HUD Status Chip: "NODES: 5" / "SYSTEM ONLINE" ──────────
+      const chipX = width * 0.76;
+      const chipY = height * 0.08;
+      ctx.fillStyle = themeColors.chipBg;
+      ctx.fillRect(chipX, chipY, 74, 15);
+      ctx.fillStyle = themeColors.chipText;
       ctx.font = "bold 9px monospace";
-      ctx.fillText("OBJECTS 5", chipX + 6, chipY + 10.5);
+      ctx.fillText("NODES: 5", chipX + 6, chipY + 11);
 
-      ctx.fillStyle = colors.boxStroke;
-      ctx.fillRect(chipX, chipY + 18, 52, 14);
-      ctx.fillStyle = isDark ? "#0b0e10" : "#ffffff";
-      ctx.fillText("LINKED", chipX + 6, chipY + 28.5);
+      ctx.fillStyle = themeColors.chipBg;
+      ctx.fillRect(chipX, chipY + 18, 92, 15);
+      ctx.fillStyle = themeColors.chipText;
+      ctx.fillText("SYSTEM ONLINE", chipX + 6, chipY + 29);
 
-      // ─── 7. HUD Telemetry Bar Chart: "SCHEMA STEPS" (OBJ, LINK, REC) ───────────
-      const chartX = width * 0.58;
+      // ─── 8. Bottom-Right Telemetry Chart: "THREAT MATRIX" ───────────────────
+      const chartX = width * 0.60;
       const chartY = height * 0.70;
       const chartW = width * 0.22;
-      const chartH = height * 0.22;
+      const chartH = height * 0.20;
 
-      // Label header
-      ctx.fillStyle = colors.boxStroke;
-      ctx.fillRect(chartX, chartY - 14, 86, 14);
-      ctx.fillStyle = isDark ? "#0b0e10" : "#ffffff";
+      // Header chip
+      ctx.fillStyle = themeColors.chipBg;
+      ctx.fillRect(chartX, chartY - 15, 96, 15);
+      ctx.fillStyle = themeColors.chipText;
       ctx.font = "bold 9px monospace";
-      ctx.fillText("SCHEMA STEPS", chartX + 6, chartY - 3.5);
+      ctx.fillText("THREAT MATRIX", chartX + 6, chartY - 4);
 
       // Coordinate axes
-      ctx.strokeStyle = colors.boxStroke;
+      ctx.strokeStyle = themeColors.secondary;
       ctx.lineWidth = 0.8;
       ctx.beginPath();
-      // Y-axis with ticks
       ctx.moveTo(chartX, chartY);
       ctx.lineTo(chartX, chartY + chartH);
-      // X-axis
       ctx.lineTo(chartX + chartW, chartY + chartH);
       for (let t = 0; t <= chartH; t += chartH / 4) {
         ctx.moveTo(chartX - 3, chartY + t);
@@ -409,55 +478,37 @@ export default function SciFiHudAnimation({
       }
       ctx.stroke();
 
-      // Dynamic animated bars
+      // Live animated telemetry bars: SRV, AGT, CVE
       const barData = [
-        { label: "OBJ", heightPct: 0.45 + Math.sin(elapsed * 1.5) * 0.15 },
-        { label: "LINK", heightPct: 0.75 + Math.sin(elapsed * 2.1 + 1) * 0.12 },
-        { label: "REC", heightPct: 0.30 + Math.cos(elapsed * 1.8) * 0.18 },
+        { label: "SRV", pct: 0.55 + Math.sin(elapsed * 1.6) * 0.15 },
+        { label: "AGT", pct: 0.82 + Math.sin(elapsed * 2.2 + 1) * 0.10 },
+        { label: "CVE", pct: 0.35 + Math.cos(elapsed * 1.9) * 0.20 },
       ];
 
       const barSlot = chartW / 3;
       barData.forEach((b, bIdx) => {
         const bx = chartX + bIdx * barSlot + barSlot * 0.35;
-        const bHeight = chartH * b.heightPct;
+        const bHeight = chartH * Math.min(Math.max(b.pct, 0.1), 0.95);
         const by = chartY + chartH - bHeight;
 
-        // Dotted raster bar fill
-        ctx.fillStyle = colors.primary;
+        ctx.fillStyle = themeColors.primary;
         for (let ry = by; ry < chartY + chartH; ry += 5) {
           ctx.fillRect(bx - 3, ry, 6, 3.5);
         }
 
-        // Axis label
-        ctx.fillStyle = colors.textMuted;
-        ctx.font = "8px monospace";
-        ctx.fillText(b.label, bx - 8, chartY + chartH + 11);
+        ctx.fillStyle = themeColors.textMuted;
+        ctx.font = "bold 8.5px monospace";
+        ctx.fillText(b.label, bx - 8, chartY + chartH + 12);
       });
 
-      // ─── 8. Outer Monitor Bezel & Border Accents ──────────────────────────────
-      if (!isBackground) {
-        ctx.strokeStyle = colors.boxStroke;
-        ctx.lineWidth = 1.0;
-        ctx.strokeRect(8, 8, width - 16, height - 16);
-
-        // Four corner ticks on outer frame
-        const tick = 14;
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        ctx.moveTo(8, 8 + tick);
-        ctx.lineTo(8, 8);
-        ctx.lineTo(8 + tick, 8);
-        ctx.moveTo(width - 8 - tick, 8);
-        ctx.lineTo(width - 8, 8);
-        ctx.lineTo(width - 8, 8 + tick);
-        ctx.moveTo(8, height - 8 - tick);
-        ctx.lineTo(8, height - 8);
-        ctx.lineTo(8 + tick, height - 8);
-        ctx.moveTo(width - 8 - tick, height - 8);
-        ctx.lineTo(width - 8, height - 8);
-        ctx.lineTo(width - 8, height - 8 - tick);
-        ctx.stroke();
-      }
+      // ─── 9. Coordinates & System Heartbeat Line ─────────────────────────────
+      ctx.fillStyle = themeColors.textMuted;
+      ctx.font = "8px monospace";
+      ctx.fillText(
+        `LATENCY: 0.12ms | P2P MESH: ACTIVE | PROTOCOL: RUST-TLS`,
+        18,
+        height - 18
+      );
 
       animId = requestAnimationFrame(render);
     };
@@ -467,19 +518,17 @@ export default function SciFiHudAnimation({
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isDark, isBackground]);
+  }, [isDark, hoveredNode]);
 
   return (
-    <div
-      ref={containerRef}
-      className={`relative w-full h-full select-none overflow-hidden ${className}`}
-    >
+    <div className={`relative w-full h-full select-none overflow-hidden ${className}`}>
       <canvas
         ref={canvasRef}
-        className="w-full h-full block"
+        className="w-full h-full block cursor-crosshair"
         style={{
-          filter: isDark ? "drop-shadow(0 0 16px rgba(63, 222, 201, 0.15))" : "none",
+          filter: isDark ? "drop-shadow(0 0 18px rgba(63, 222, 201, 0.12))" : "none",
         }}
       />
     </div>

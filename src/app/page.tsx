@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import P2PMeshCanvas from "@/components/P2PMeshCanvas";
 import SciFiHudAnimation from "@/components/SciFiHudAnimation";
+import CyberHeroBackground from "@/components/CyberHeroBackground";
 import SoftwareCatalogExplorer from "@/components/SoftwareCatalogExplorer";
 import LiveTelemetryTerminal from "@/components/LiveTelemetryTerminal";
 import RoiCalculator from "@/components/RoiCalculator";
@@ -36,12 +37,8 @@ export default function HomePage() {
     <div className="space-y-24 md:space-y-32 pb-24 overflow-hidden">
       {/* 1. HERO SECTION */}
       <section className="relative pt-12 md:pt-20 px-6 lg:px-12 max-w-7xl mx-auto">
-        {/* Ambient Futuristic Sci-Fi HUD Background Animation (Light & Dark theme adaptable) */}
-        <div className="pointer-events-none absolute inset-0 -top-8 overflow-hidden flex items-center justify-center opacity-30 dark:opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_78%)]">
-          <div className="w-full max-w-5xl h-[620px]">
-            <SciFiHudAnimation isBackground={true} />
-          </div>
-        </div>
+        {/* Ambient Cybernetic Particle Grid (Clean, Non-Clashing, Light & Dark Theme Adaptable) */}
+        <CyberHeroBackground />
 
         <div className="relative z-10 text-center max-w-4xl mx-auto">
           {/* Eyebrow badge */}
@@ -188,9 +185,9 @@ export default function HomePage() {
           </div>
 
           {/* Interactive Visualizer Display: Sci-Fi HUD vs P2P Mesh Swarm */}
-          <div className="rounded-2xl border border-[var(--line)] overflow-hidden bg-[var(--bg)]">
+          <div className="rounded-2xl border border-[var(--line)] overflow-hidden bg-[var(--bg)] shadow-inner">
             {heroVisualMode === "hud" ? (
-              <div className="w-full h-[480px] sm:h-[540px] p-2 sm:p-4">
+              <div className="w-full h-[520px] sm:h-[580px] p-2 sm:p-4">
                 <SciFiHudAnimation className="h-full" />
               </div>
             ) : (
