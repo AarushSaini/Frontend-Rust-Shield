@@ -1,0 +1,52 @@
+(function(){const o=document.createElement("link").relList;if(o&&o.supports&&o.supports("modulepreload"))return;for(const e of document.querySelectorAll('link[rel="modulepreload"]'))n(e);new MutationObserver(e=>{for(const c of e)if(c.type==="childList")for(const u of c.addedNodes)u.tagName==="LINK"&&u.rel==="modulepreload"&&n(u)}).observe(document,{childList:!0,subtree:!0});function r(e){const c={};return e.integrity&&(c.integrity=e.integrity),e.referrerPolicy&&(c.referrerPolicy=e.referrerPolicy),e.crossOrigin==="use-credentials"?c.credentials="include":e.crossOrigin==="anonymous"?c.credentials="omit":c.credentials="same-origin",c}function n(e){if(e.ep)return;e.ep=!0;const c=r(e);fetch(e.href,c)}})();const de=`precision highp float;
+uniform float uT;
+const float TAU = 6.2831853;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float blob(vec2 p, vec2 c, float r, float k) { vec2 d = p - c; return k * exp(-dot(d, d) / (r * r)); }
+float sm(float a, float b, float t) { return smoothstep(a, b, t); }
+float ease(float u) { u = clamp(u, 0.0, 1.0); return u < 0.5 ? 4.0 * u * u * u : 1.0 - pow(-2.0 * u + 2.0, 3.0) / 2.0; }
+float seg(vec2 p, vec2 a, vec2 b, float r, float k) { vec2 ab = b - a; float h = clamp(dot(p - a, ab) / dot(ab, ab), 0.0, 1.0); vec2 d = p - a - ab * h; return k * exp(-dot(d, d) / (r * r)); }
+float noise(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+`,me=`
+float cellValue(float col, float cell) {
+  return field(vec2(4.0 + col * 7.0, cell * 9.4 + 3.5), uT) * (0.7 + 0.3 * hash(vec2(col, cell)));
+}`,pe=`
+void main() {
+  float v = clamp(cellValue(floor(gl_FragCoord.x), floor(gl_FragCoord.y)) / 4.0, 0.0, 0.99999);
+  gl_FragColor = vec4(floor(v * 255.0) / 255.0, fract(v * 255.0), 0.0, 1.0);
+}`,ge=(t,o)=>[Math.floor((t-6)/7)+1,Math.ceil(o/9.4)],ve=`precision highp float;
+uniform vec2 uRes; uniform vec2 uGrid; uniform float uDpr; uniform vec3 uGround; uniform vec3 uInk; uniform sampler2D uField;
+uniform vec3 uR1; uniform vec3 uR2; uniform vec3 uR3; uniform vec3 uR4; uniform vec3 uSpark;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+vec3 paint(vec3 uGround, vec2 px, float v, float col, float cx, float cell) {
+  vec3 color = uGround;
+  if (mod(px.x, 96.0) < 1.0 || mod(px.y, 96.0) < 1.0) color = mix(uGround, uInk, 0.09);
+  float dx = abs(px.x - cx);
+  color = mix(color, mix(uGround, uR4, 0.18), 1.0 - smoothstep(0.3, 0.7, dx));
+  float w = 0.0; vec3 c = uR4; float a = 1.0;
+  if (v >= 0.72) { w = 3.6; c = uR1; } else if (v >= 0.48) { w = 2.7; c = uR2; } else if (v >= 0.27) { w = 1.8; c = uR3; } else if (v >= 0.1) { w = 1.1; c = uR4; a = 0.55; }
+  float bar = step(mod(px.y, 9.4), 7.0) * (1.0 - smoothstep(w * 0.5 - 0.35, w * 0.5 + 0.35, dx)) * step(0.001, w);
+  color = mix(color, c, bar * a);
+  if (w > 3.5 && hash(vec2(col, cell * 1.3)) > 0.55 && abs(mod(px.y, 9.4) - 3.0) < 0.8 && dx < 0.7) color = uSpark;
+  return color;
+}
+void main() {
+  vec2 px = vec2(gl_FragCoord.x, uRes.y * uDpr - gl_FragCoord.y) / uDpr;
+  float col = floor((px.x - 4.0) / 7.0 + 0.5);
+  float cx = 4.0 + col * 7.0;
+  float cell = floor(px.y / 9.4);
+  vec4 e = texture2D(uField, (vec2(col, cell) + 0.5) / uGrid);
+  float v = (e.r + e.g / 255.0) * 4.0;
+  if (col < 0.0 || col > uGrid.x - 1.0) v = 0.0;
+#ifdef CLEAR
+  vec3 onBlack = paint(vec3(0.0), px, v, col, cx, cell);
+  vec3 onWhite = paint(vec3(1.0), px, v, col, cx, cell);
+  gl_FragColor = vec4(onBlack, clamp(1.0 - (onWhite.g - onBlack.g), 0.0, 1.0));
+#else
+  gl_FragColor = vec4(paint(uGround, px, v, col, cx, cell), 1.0);
+#endif
+}`,Ee=(t,o)=>`${de}const float T = ${o.toFixed(3)};
+${t}
+${me}${pe}`;function he(t){const o=t.querySelector("metadata.illos-field");if(!o)return null;const r=Number(o.getAttribute("data-cycle")),n=(o.textContent??"").trim();return r>0&&/float\s+field\s*\(/.test(n)?{cycle:r,field:n}:null}const M=(t,o)=>{const r=t.trim().replace("#",""),n=r.length===3?r.replace(/./g,"$&$&"):r;return/^[0-9a-f]{6}$/i.test(n)?[0,2,4].map(e=>parseInt(n.slice(e,e+2),16)/255):o},K=["#16645a","#1daf9c","#3fdec9","#c2f5ee"].map(t=>M(t,[0,0,0])),Y=M("#0b463e",[0,0,0]);let f;const j=new Set;function U(t,o){const r=t.trim();if(!r)return o;const n=M(r,[]);if(n.length)return n;if(f??=document.createElement("canvas").getContext("2d",{willReadFrequently:!0}),f&&(f.fillStyle="#010203",f.fillStyle=r,f.fillStyle!=="#010203")){f.clearRect(0,0,1,1),f.fillRect(0,0,1,1);const[e,c,u]=f.getImageData(0,0,1,1).data;return[e/255,c/255,u/255]}return j.has(r)||(j.add(r),console.warn(`Illos: the colour "${r}" could not be read, so the default is used.`)),o}const Re=/swiftshader|llvmpipe|softpipe|software|basic render/i;function xe(t,o={}){if(E)return null;const r=t.getContext("webgl",{...o,failIfMajorPerformanceCaveat:!0});if(E===void 0){const n=r?.getExtension("WEBGL_debug_renderer_info");E=!r||!!(n&&Re.test(String(r.getParameter(n.UNMASKED_RENDERER_WEBGL))))}return E?(r?.getExtension("WEBGL_lose_context")?.loseContext(),null):r}let E;function be(t){const o=t.querySelector("svg"),r=o?he(o):null;if(!o||!r)return()=>{};if(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)return()=>{};const n=document.createElement("canvas"),e=xe(n,{antialias:!1});if(!e)return()=>{};const c=(l,a)=>{const i=e.createShader(l);return i?(e.shaderSource(i,a),e.compileShader(i),e.getShaderParameter(i,e.COMPILE_STATUS)?i:null):null},u=c(e.VERTEX_SHADER,"attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"),B=l=>{const a=e.createProgram();return!u||!l||!a?null:(e.attachShader(a,u),e.attachShader(a,l),e.bindAttribLocation(a,0,"p"),e.linkProgram(a),e.getProgramParameter(a,e.LINK_STATUS)?a:null)},[C,G]=(o.getAttribute("viewBox")??"").trim().split(/[\s,]+/).slice(2).map(Number),[b,N]=C>0&&G>0?[C,G]:[720,460],[T,A]=ge(b,N),y=B(c(e.FRAGMENT_SHADER,Ee(r.field,r.cycle))),s=B(c(e.FRAGMENT_SHADER,`#define CLEAR
+${ve}`));if(!y||!s)return()=>{};e.bindBuffer(e.ARRAY_BUFFER,e.createBuffer()),e.bufferData(e.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),e.STATIC_DRAW),e.enableVertexAttribArray(0),e.vertexAttribPointer(0,2,e.FLOAT,!1,0,0);const w=e.createTexture();e.bindTexture(e.TEXTURE_2D,w),e.texImage2D(e.TEXTURE_2D,0,e.RGBA,T,A,0,e.RGBA,e.UNSIGNED_BYTE,null),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MIN_FILTER,e.NEAREST),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MAG_FILTER,e.NEAREST),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_S,e.CLAMP_TO_EDGE),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_T,e.CLAMP_TO_EDGE);const $=e.createFramebuffer();e.bindFramebuffer(e.FRAMEBUFFER,$),e.framebufferTexture2D(e.FRAMEBUFFER,e.COLOR_ATTACHMENT0,e.TEXTURE_2D,w,0),e.bindFramebuffer(e.FRAMEBUFFER,null);const te=e.getUniformLocation(y,"uT"),oe=e.getUniformLocation(s,"uRes"),re=e.getUniformLocation(s,"uGrid"),ne=e.getUniformLocation(s,"uDpr"),ce=e.getUniformLocation(s,"uInk"),ae=[1,2,3,4].map(l=>e.getUniformLocation(s,`uR${l}`)),le=e.getUniformLocation(s,"uSpark"),ie=e.getUniformLocation(s,"uField");n.className="illos-field-canvas",o.parentNode?.insertBefore(n,o),t.classList.add("illos-live");const se=o.querySelector(".sh-clock");let O=-1,X="",F=0,_=0,v=!1,W=-1/0,d=1,p=1,L=[.165,.165,.165],S=K,P=Y;const ue=()=>{const l=o.getBoundingClientRect(),a=Math.min(2,window.devicePixelRatio||1);d=Math.max(1,Math.round(l.width*a)),p=Math.max(1,Math.round(l.height*a));const i=getComputedStyle(o),g=m=>i.getPropertyValue(`--illos-${m}`).trim()||i.getPropertyValue(`--_${m}`);L=U(g("ink"),[.165,.165,.165]),S=K.map((m,fe)=>U(g(`ramp-${fe+1}`),m)),P=U(g("spark"),Y),W=Date.now()},q=()=>{const l=se?.getAnimations?.()[0],a=((Number(l?.currentTime)||0)/1e3%r.cycle+r.cycle)%r.cycle;Date.now()-W>500&&ue();const i=`${d}x${p} ${L} ${S} ${P}`;return(a!==O||i!==X)&&((n.width!==d||n.height!==p)&&(n.width=d,n.height=p),X=i,e.bindFramebuffer(e.FRAMEBUFFER,$),e.viewport(0,0,T,A),e.useProgram(y),e.uniform1f(te,a),e.drawArrays(e.TRIANGLE_STRIP,0,4),e.bindFramebuffer(e.FRAMEBUFFER,null),e.viewport(0,0,d,p),e.useProgram(s),e.uniform2f(oe,b,N),e.uniform2f(re,T,A),e.uniform1f(ne,d/b),e.uniform3fv(ce,L),S.forEach((g,m)=>e.uniform3fv(ae[m],g)),e.uniform3fv(le,P),e.bindTexture(e.TEXTURE_2D,w),e.uniform1i(ie,0),e.drawArrays(e.TRIANGLE_STRIP,0,4),O=a),l?.playState==="running"};let D=0;const I=()=>{F=0,_=0,!v&&(D=q()?0:D+1,D<20?F=requestAnimationFrame(I):_=window.setTimeout(I,250))},V=()=>{v||q()},H=()=>{v||(v=!0,cancelAnimationFrame(F),clearTimeout(_),t.removeEventListener("illos:draw",V),n.remove(),t.classList.remove("illos-live"),e.getExtension("WEBGL_lose_context")?.loseContext())};return n.addEventListener("webglcontextlost",H),t.addEventListener("illos:draw",V),I(),H}const k=document.documentElement,Te=matchMedia("(prefers-reduced-motion: reduce)").matches,z=document.getElementById("theme"),J=()=>k.dataset.theme?k.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches,Q=()=>z.setAttribute("aria-label",J()?"Switch to light theme":"Switch to dark theme");Q();z.addEventListener("click",()=>{const t=J()?"light":"dark";k.dataset.theme=t;try{localStorage.setItem("brindle-theme",t)}catch{}Q()});const h=document.getElementById("burger"),R=document.getElementById("menu"),x=t=>{R.classList.toggle("open",t),h.setAttribute("aria-expanded",String(t)),h.setAttribute("aria-label",t?"Close menu":"Open menu")};h.addEventListener("click",()=>x(!R.classList.contains("open")));R.addEventListener("click",t=>{t.target.closest("a")&&x(!1)});addEventListener("keydown",t=>{t.key==="Escape"&&R.classList.contains("open")&&(x(!1),h.focus())});matchMedia("(min-width: 1024px)").addEventListener("change",()=>x(!1));const Z=new Map([...document.querySelectorAll(".toc a")].map(t=>[t.getAttribute("href").slice(1),t])),Ae=new IntersectionObserver(t=>{for(const o of t)if(o.isIntersecting)for(const[r,n]of Z)r===o.target.id?n.setAttribute("aria-current","true"):n.removeAttribute("aria-current")},{rootMargin:"-50% 0px -50% 0px"});for(const t of Z.keys()){const o=document.getElementById(t);o&&Ae.observe(o)}const ee=document.querySelectorAll("[data-illos]");if(!Te){const t=new IntersectionObserver(o=>{for(const r of o)r.target.style.setProperty("--illos-play",r.isIntersecting?"running":"paused")});for(const o of ee)o.style.setProperty("--illos-play","paused"),t.observe(o)}for(const t of ee)be(t);
